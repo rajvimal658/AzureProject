@@ -1,0 +1,388 @@
+package com.ntrs.utils;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.json.JSONException;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.testng.annotations.Test;
+
+public class AzureTestPlanIntegration {
+	private static Logger logger = LogManager.getLogger(AzureTestPlanIntegration.class.getName());
+	static CopyOnWriteArrayList<String> testNGList = new CopyOnWriteArrayList<String>();
+	static ConcurrentHashMap<String, String> testMap = new ConcurrentHashMap<String, String>();
+	static ConcurrentHashMap<String, Set<String>> testTypeMap = new ConcurrentHashMap<String, Set<String>>();
+	private static String ADO_Server = null;
+	private static final String getAllPlans = "/_apis/testplan/Plans/";
+	private static String collectionName = null;
+	private static String projectName = null;
+	private static String planName = null;
+	private static String suiteName = null;
+	private static String customParamName = "Automation Status";
+	public static final String ADO_CUCUMBER_TAGS = null;
+	public static String testCaseID = null;
+	public static String planID = null;
+	public static String suiteID = null;
+	public static String ConfigurationName = null;
+	public static String ConfigurationName1 = null;
+	public static ConcurrentHashMap<String, ConcurrentHashMap<String, String>> output = null;
+	public static Set<String> bddTests = new HashSet<String>();
+
+	private static String makeRestCall(HttpURLConnection con, String testCaseJsonString) throws IOException {
+		if (testCaseJsonString != null) {
+			try (OutputStream os = con.getOutputStream()) {
+				byte[] input = testCaseJsonString.getBytes("utf-8");
+				os.write(input, 0, input.length);
+			}
+		}
+		String response_str = null;
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+			StringBuilder response = new StringBuilder();
+			String responseLine = null;
+			while ((responseLine = br.readLine()) != null) {
+				response.append(responseLine.trim());
+			}
+			response_str = response.toString();
+		} catch (Exception e) {
+			StringBuffer sb = new StringBuffer();
+			Reader in = new InputStreamReader(con.getErrorStream());
+			BufferedReader bufferedReader = new BufferedReader(in);
+			if (bufferedReader != null) {
+				int cp;
+				while ((cp = bufferedReader.read()) != -1) {
+					sb.append((char) cp);
+				}
+				bufferedReader.close();
+			}
+			in.close();
+			System.out.println(sb);
+		}
+		con.disconnect();
+		return response_str;
+	}
+
+	private static void setHeader(HttpURLConnection con, String method)
+			throws org.apache.http.ParseException, ClientProtocolException, IOException {
+		con.setRequestProperty("Content-Type", "application/json");
+		con.setRequestMethod(method);
+		con.setDoOutput(true);
+		con.setRequestProperty("Authorization", "Basic " + java.util.Base64.getEncoder()
+				.encodeToString((":" + Library.getKeyFromVault(System.getenv("patToken"))).getBytes()));
+		con.setRequestProperty("Accept", "application/json");
+	}
+
+	public static HttpURLConnection getRESTConnection(String url_str) throws IOException, MalformedURLException {
+		URL url = new URL(url_str);
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		return connection;
+	}
+
+	public static String getPlanID() throws ParseException, JSONException {
+		try {
+			if (!collectionName.isEmpty() && !projectName.isEmpty() && !planName.isEmpty()) {
+				String response = null;
+				HttpURLConnection con = getRESTConnection(
+						System.getenv("adoServerURL") + System.getenv("adoCollectionName") + "/"
+								+ System.getenv("adoProjectName") + "/_apis/testplan/Plans/");
+				setHeader(con, "GET");
+				response = makeRestCall(con, null);
+				JSONParser parser = new JSONParser();
+				JSONObject allPlans = (org.json.simple.JSONObject) parser.parse(response);
+				JSONArray plansArr = (JSONArray) allPlans.get("value");
+				@SuppressWarnings("unchecked")
+				Iterator<String> planIterator = plansArr.iterator();
+				while (planIterator.hasNext()) {
+					Object uJson = planIterator.next();
+					JSONObject uj = (JSONObject) uJson;
+					if (uj.get("name").toString().equals(planName)) {
+						planID = uj.get("id").toString();
+						logger.info("Plan id - " + planID);
+						break;
+					}
+				}
+				if (planID == null) {
+					logger.error("Please enter valid project details!");
+				}
+			} else {
+				logger.error("Please enter project details!!");
+			}
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			logger.error(" to get plan id");
+		} catch (IOException e) {
+			e.printStackTrace();
+			logger.error(" to get plan id");
+		}
+		return planID;
+	}
+
+	public static String getSuiteID(String planID) throws ParseException, JSONException { try { if (!suiteName.isEmpty()) { String response = null; HttpURLConnection con = getRESTConnection( ADO_Server.concat(collectionName).concat("/").concat(projectName).concat(getAllPlans) .concat("/").concat(planID).concat("/").concat("suites"));
+		}
+}
+	setHeader(con, "GET"); response = makeRestCall(con, null); JSONParser parser = new JSONParser(); JSONObject allPlans = (org.json.simple.JSONObject) parser.parse(response); JSONArray plansArr = (JSONArray) allPlans.get("value"); @SuppressWarnings("unchecked") Iterator<String> planIterator = plansArr.iterator(); while (planIterator.hasNext()) { Object uJson = planIterator.next(); JSONObject uj = (JSONObject) uJson; if (uj.get("name").toString().equals(suiteName)) { suiteID = uj.get("id").toString(); logger.info("Suite id - " + suiteID); break; } } if (planID == null) { logger.error("Please enter valid project details!"); } }else
+
+	{
+		logger.error("Please enter project details!!");
+	}}catch(MalformedURLException e)
+	{
+		e.printStackTrace();
+		logger.error(" to get suite id");
+	}catch(IOException e)
+	{ e.printStackTrace(); logger.error(" to get suite id"); }return suiteID;
+	}
+
+	@SuppressWarnings("unchecked")
+	public static ConcurrentHashMap<String, ConcurrentHashMap<String, String>> getTestcases(String planID,
+			String suiteID) throws ParseException, JSONException {
+		ConcurrentHashMap<String, ConcurrentHashMap<String, String>> testcases = new ConcurrentHashMap<String, ConcurrentHashMap<String, String>>();
+		try {
+			if (!suiteName.isEmpty()) {
+				String response = null;
+				HttpURLConnection con = getRESTConnection(ADO_Server.concat(collectionName).concat("/")
+						.concat(projectName).concat(getAllPlans).concat("/").concat(planID).concat("/").concat("suites")
+						.concat("/").concat(suiteID).concat("/").concat("testcase"));
+				setHeader(con, "GET");
+				response = makeRestCall(con, null);
+				JSONParser parser = new JSONParser();
+				JSONObject allPlans = (org.json.simple.JSONObject) parser.parse(response);
+				JSONArray plansArr = (JSONArray) allPlans.get("value");
+				ConcurrentHashMap<String, String> tempMap = new ConcurrentHashMap<String, String>();
+				Iterator<String> planIterator = plansArr.iterator();
+				while (planIterator.hasNext()) {
+					Object uJson = planIterator.next();
+					JSONObject uj = (JSONObject) uJson;
+					JSONObject workItemObj = (JSONObject) uj.get("workItem");
+					testCaseID = String.valueOf(workItemObj.get("id"));
+					tempMap.put("adoTestID", testCaseID);
+					tempMap.put("adoTestName", (String) workItemObj.get("name"));
+					JSONArray workItemFieldsObj = (JSONArray) workItemObj.get("workItemFields");
+					Iterator<String> workItemFieldsIterator = workItemFieldsObj.iterator();
+					JSONArray pointsObj = (JSONArray) uj.get("pointAssignments");
+					Iterator<String> pointsObjIterator = pointsObj.iterator();
+					while (pointsObjIterator.hasNext()) {
+						Object pointsObjFields = pointsObjIterator.next();
+						JSONObject points = (JSONObject) pointsObjFields;
+						if (points.get("id") != null)
+							tempMap.put("adoTestPointID", String.valueOf(points.get("id")));
+						ConfigurationName = points.get("configurationName").toString();
+						if (points.get("configurationName") != null)
+							tempMap.put("adoConfiguration", (String) points.get("configurationName"));
+					}
+					testcases.put(testCaseID, tempMap);
+					tempMap = new ConcurrentHashMap<String, String>();
+				}
+				if (testcases.isEmpty()) {
+					logger.error("Please check the testsuite has atleast one tescases in it!!");
+				}
+			} else {
+				logger.error("Please make sure the suitename is not empty!!");
+			}
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			logger.error(" to get testcase details");
+		} catch (IOException e) {
+			e.printStackTrace();
+			logger.error(" to get testcase details");
+		}
+		return testcases;
+	}
+
+	@Test
+	public static ConcurrentHashMap<String, ConcurrentHashMap<String, String>> getAutomatedTestDetails() {
+		try {
+			ADO_Server = System.getenv("adoServerURL");
+			collectionName = System.getenv("adoCollectionName");
+			projectName = System.getenv("adoProjectName");
+			planName = System.getenv("adoPlanName");
+			suiteName = System.getenv("adoSuiteName");
+			String planID = getPlanID();
+			String suiteID = getSuiteID(planID);
+			output = getTestcases(planID, suiteID);
+		} catch (Exception e) {
+			logger.error("Exception is", e);
+		}
+		return output;
+	}
+
+/** * This is updateExecutionStatus method. : This method is used to update * execution status of test in AzureDevOps(ADO). . * * @param executionId * @param status * @param comment * @return void @throws */ public static void updateExecutionStatus(String adoTestId, String status, String comment, String testplanconfiguration) { try { BufferedReader br = null; // Get Test Point ID URL serverUrl = new URL(ADO_Server + "/" + collectionName + "/" + projectName + "/_apis/testplan/Plans/" + planID + "/suites/" + suiteID + "/TestPoint?testPointIds&testCaseId="+adoTestId+"&api-version=6.0-preview.2");
+}
+
+HttpURLConnection urlConnection = (HttpURLConnection) serverUrl.openConnection(); urlConnection.setRequestMethod("GET"); urlConnection.addRequestProperty("Authorization", "Basic " + java.util.Base64.getEncoder().encodeToString((":"+Library.getKeyFromVault(System.getenv("patToken"))).getBytes())); br = new BufferedReader(new InputStreamReader(urlConnection.getInputStream())); int responseCode = urlConnection.getResponseCode(); if (responseCode != 200) { throw new RuntimeException(" : HTTP error code : " + responseCode); } String output; StringBuilder sb = new StringBuilder(); String finaloutput; while ((output = br.readLine()) != null) { sb.append(output); } br.close(); urlConnection.disconnect(); finaloutput = sb.toString();
+org.json.simple.parser.JSONParser parse = new org.json.simple.parser.JSONParser(); // Type caste the parsed json data in json object org.json.simple.JSONObject jobj = (org.json.simple.JSONObject) parse.parse(finaloutput); // Store the JSON object in JSON array as objects (For level 1 array element i.e // // Results) org.json.simple.JSONArray jsonArray = (org.json.simple.JSONArray) jobj.get("value");// value is name of the // array in the response // json // Get data for Results array long testPoint = 0; for (int i = 0; i < jsonArray.size(); i++) { // Store the JSON objects in an array JSONObject currentObject = (JSONObject) jsonArray.get(i); // Store the JSON object in JSON array as objects JSONObject testCaseReferenceObject = (JSONObject) currentObject.get("testCaseReference"); JSONObject configurationObject = (JSONObject) currentObject.get("configuration");
+String currentTestCaseId = testCaseReferenceObject.get("id").toString(); String currentConfigurationName = configurationObject.get("name").toString(); testPoint = (long) currentObject.get("id"); if (currentTestCaseId.equals(adoTestId) && currentConfigurationName.equals(testplanconfiguration)) break; } // If
+																																																																									// you
+																																																																									// are
+																																																																									// able
+																																																																									// to
+																																																																									// SUCCESSFULLY
+																																																																									// get
+																																																																									// test
+																																																																									// point
+																																																																									// id,
+																																																																									// then
+																																																																									// create
+																																																																									// a
+																																																																									// new
+																																																																									// run
+																																																																									// id
+																																																																									// //
+																																																																									// using
+																																																																									// that
+																																																																									// long
+																																																																									// newRunId
+																																																																									// =
+																																																																									// 0;
+																																																																									// if
+																																																																									// (testPoint
+																																																																									// !=
+																																																																									// 0)
+																																																																									// {
+																																																																									// URL
+																																																																									// serverUrl2
+																																																																									// =
+																																																																									// new
+																																																																									// URL(
+																																																																									// ADO_Server
+																																																																									// +
+																																																																									// "/"
+																																																																									// +
+																																																																									// collectionName
+																																																																									// +
+																																																																									// "/"
+																																																																									// +
+																																																																									// projectName
+																																																																									// +
+																																																																									// "/_apis/test/runs?aapi-version=6.0");
+																																																																									// urlConnection
+																																																																									// =
+																																																																									// (HttpURLConnection)
+																																																																									// serverUrl2.openConnection();
+																																																																									// urlConnection.setRequestMethod("POST");
+																																																																									// urlConnection.addRequestProperty("Authorization",
+																																																																									// "Basic
+																																																																									// "
+																																																																									// +
+																																																																									// java.util.Base64.getEncoder().encodeToString((":"+Library.getKeyFromVault(System.getenv("patToken"))).getBytes()));
+																																																																									// urlConnection.setRequestProperty("Content-Type",
+																																																																									// "application/json;
+																																																																									// utf-8")
+
+	urlConnection.setRequestProperty("Accept","application/json");urlConnection.setDoOutput(true);
+
+	StringBuilder stringEntityBuilder = new StringBuilder();stringEntityBuilder.append(String.format("{\r\n \"name\": \"NewTestRun\",\r\n \"plan\": {\r\n \"id\": \""));stringEntityBuilder.append(planID);stringEntityBuilder.append(String.format("\"\r\n },\r\n \"pointIds\":"));stringEntityBuilder.append("["+testPoint+"]");// this
+																																																																																	// comma
+																																																																																	// delimited
+																																																																																	// list
+																																																																																	// of
+																																																																																	// test
+																																																																																	// point
+																																																																																	// ids
+																																																																																	// of
+																																																																																	// each
+																																																																																	// //
+																																																																																	// test
+																																																																																	// case
+																																																																																	// in
+																																																																																	// a
+																																																																																	// test
+																																																																																	// suite
+																																																																																	// stringEntityBuilder.append(String.format("\r\n}\r\n"));
+																																																																																	// String
+																																																																																	// jsonBody
+																																																																																	// =
+																																																																																	// stringEntityBuilder.toString();
+																																																																																	// OutputStream
+																																																																																	// os
+																																																																																	// =
+																																																																																	// urlConnection.getOutputStream();
+																																																																																	// byte[]
+																																																																																	// input
+																																																																																	// =
+																																																																																	// jsonBody.getBytes("utf-8");
+																																																																																	// os.write(input,
+																																																																																	// 0,
+																																																																																	// input.length);
+																																																																																	// br
+																																																																																	// =
+																																																																																	// new
+																																																																																	// BufferedReader(new
+																																																																																	// InputStreamReader(urlConnection.getInputStream(),
+																																																																																	// "utf-8"));
+																																																																																	// StringBuilder
+																																																																																	// response
+																																																																																	// =
+																																																																																	// new
+																																																																																	// StringBuilder()
+String responseLine = null;while((responseLine=br.readLine())!=null)
+	{
+		response.append(responseLine.trim());
+	}finaloutput=response.toString();
+	JSONParser parser = new JSONParser();
+	JSONObject jsonObject = (JSONObject) parser.parse(
+			finaloutput);newRunId=(long)jsonObject.get("id");logger.info("newly created test run id is:"+newRunId);} // If
+																														// new
+																														// run
+																														// id
+																														// is
+																														// generated
+																														// SUCCESSFULLY,
+																														// update
+																														// the
+																														// test
+																														// result
+																														// if
+																														// (newRunId
+																														// !=
+																														// 0)
+																														// {
+																														// URL
+																														// serverUrl3
+																														// =
+																														// new
+																														// URL(ADO_Server
+																														// +
+																														// "/"
+																														// +
+																														// collectionName
+																														// +
+																														// "/"
+																														// +
+																														// projectName
+																														// +
+																														// "/_apis/test/Runs/"
+																														// +
+																														// newRunId
+																														// +
+																														// "/results?api-version=6.0")
+	urlConnection=(HttpURLConnection)serverUrl3.openConnection();urlConnection.setRequestProperty("X-HTTP-Method-Override","PATCH");urlConnection.setRequestMethod("POST");urlConnection.addRequestProperty("Authorization","Basic "+java.util.Base64.getEncoder().encodeToString((":"+Library.getKeyFromVault(System.getenv("patToken"))).getBytes()));urlConnection.setRequestProperty("Content-Type","application/json; utf-8");urlConnection.setRequestProperty("Accept","application/json");urlConnection.setDoOutput(true);
+	StringBuilder body = new StringBuilder();body.append(String.format("[{\"id\":100000,\"state\":\"Completed\",\"outcome\":\""));body.append(String.format(status+"\",\"comment\":\""));body.append(String.format(comment+"\"}]"));
+	String jsonBody = body.toString();
+	OutputStream os = urlConnection.getOutputStream();
+	byte[] input = jsonBody.getBytes("utf-8");
+
+	os.write(input,0,input.length);br=new BufferedReader(new InputStreamReader(urlConnection.getInputStream(),"utf-8"));
+	StringBuilder response = new StringBuilder();
+	String responseLine = null;while((responseLine=br.readLine())!=null)
+	{
+		response.append(responseLine.trim());
+	}br.close();urlConnection.disconnect();logger.info("ADO Test Case ID "+adoTestId+" updated with status "+status+" successfully!");}}catch(Exception e)
+	{ logger.error("ADO- to update test case " + adoTestId + "in ADO, "); logger.error("Exception is", e);}
+}}
